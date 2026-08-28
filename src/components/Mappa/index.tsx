@@ -94,8 +94,18 @@ export default function Mappa() {
   // Mostra solo le 12 fermate più pertinenti alla zona/posizione
   const fermatePertinenti = fermateVicine.slice(0, 12);
 
-  // Tile CARTO Dark (aperto e gratuito con attribuzione CARTO/OpenStreetMap)
-  const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  // Lettura sicura della CARTO API Key da variabile d'ambiente (definita in .env.local ignorato da git)
+  const cartoApiKey = (import.meta.env.VITE_CARTO_API_KEY || '').trim();
+
+  // Se è presente la chiave CARTO, usa i tile CARTO Dark autenticati
+  // Altrimenti fallback su OpenStreetMap (completamente aperto, gratuito e senza watermark)
+  const tileUrl = cartoApiKey
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${encodeURIComponent(cartoApiKey)}`
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  const tileAttribution = cartoApiKey
+    ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   return (
     <div className="mappa-wrapper">
@@ -110,7 +120,7 @@ export default function Mappa() {
         attributionControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution={tileAttribution}
           url={tileUrl}
         />
 

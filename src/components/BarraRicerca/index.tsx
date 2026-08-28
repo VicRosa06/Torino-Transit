@@ -158,7 +158,7 @@ export default function BarraRicerca() {
             boxShadow: 'var(--shadow-lg)',
             maxHeight: '60vh',
             overflowY: 'auto',
-            zIndex: 100,
+            zIndex: 500,
           }}
         >
           {/* Preferiti (mostrati quando non si sta cercando) */}

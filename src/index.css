@@ -71,12 +71,14 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top:    env(safe-area-inset-top, 0px);
 
-  /* Z-index */
-  --z-map:     1;
-  --z-header:  20;
-  --z-sheet:   40;
-  --z-modal:   50;
-  --z-toast:   60;
+  /* Z-index Gerarchia Solida */
+  --z-map:              1;
+  --z-header:           100;
+  --z-search-dropdown:  500;
+  --z-backdrop:         9000;
+  --z-sheet:            9100;
+  --z-modal:            9200;
+  --z-toast:            9999;
 }
 
 /* ============================================
@@ -250,6 +252,9 @@ body {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: var(--z-map);
+  isolation: isolate; /* Isola Leaflet da modali e fogli sovrapposti */
 }
 
 .map-card-header {
@@ -281,12 +286,14 @@ body {
   height: 280px;
   position: relative;
   width: 100%;
+  isolation: isolate;
 }
 
 .mappa-wrapper {
   height: 100%;
   width: 100%;
   position: relative;
+  isolation: isolate;
 }
 
 /* ============================================
@@ -621,9 +628,13 @@ body {
 .bottom-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: calc(var(--z-sheet) - 1);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: var(--z-backdrop);
   animation: fadeIn 200ms ease;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .bottom-sheet {
@@ -640,7 +651,9 @@ body {
   padding-bottom: calc(var(--safe-bottom) + var(--sp-6));
   max-height: 85vh;
   overflow-y: auto;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.85);
   animation: slideUp 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
 }
 
 .bottom-sheet-handle {

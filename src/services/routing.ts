@@ -279,6 +279,35 @@ export async function calcolaPercorso(
 }
 
 /**
+ * Restituisce la prima fermata di salita del percorso selezionato.
+ * Regola: se il percorso inizia con un tratto a piedi, il target di Maps è la
+ * fermata di partenza del primo mezzo, cioè la destinazione del primo segmento walk.
+ */
+export function trovaPrimaFermataSalitaPercorso(
+  opzione?: OpzionePercorso | null
+): Coordiante | null {
+  if (!opzione || opzione.tratti.length === 0) return null;
+
+  const primoMezzo = opzione.tratti.find((tratto) => tratto.tipo === 'mezzo');
+  const nomeFermata = primoMezzo?.fermata_partenza?.trim();
+  if (!nomeFermata) return null;
+
+  const dati = getDatiGTFS();
+  if (!dati) return null;
+
+  const fermata = Array.from(dati.stops.values()).find(
+    (stop) => stop.stop_name.trim().toLowerCase() === nomeFermata.toLowerCase()
+  );
+
+  if (!fermata) return null;
+
+  return {
+    lat: fermata.stop_lat,
+    lon: fermata.stop_lon,
+  };
+}
+
+/**
  * Genera un link Google Maps per navigare verso una fermata
  */
 export function linkGoogleMapsNavigazione(

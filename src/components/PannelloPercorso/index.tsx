@@ -3,7 +3,10 @@
 import { useAppStore } from '../../store/appStore';
 import type { OpzionePercorso, TrattoPercorso } from '../../types';
 import { formattaMinuti, emojMezzo, classeBadge } from '../../utils/matematica';
-import { linkGoogleMapsNavigazione } from '../../services/routing';
+import {
+  linkGoogleMapsNavigazione,
+  trovaPrimaFermataSalitaPercorso,
+} from '../../services/routing';
 
 function etichettaModalita(modalita: OpzionePercorso['modalita']): {
   label: string;
@@ -257,10 +260,15 @@ export default function PannelloPercorso() {
                   <button
                     className="btn btn-primary w-full"
                     onClick={() => {
-                      if (posizione && destinazione) {
-                        const url = linkGoogleMapsNavigazione(posizione, destinazione.coords, destinazione.nome);
-                        window.open(url, '_blank');
-                      }
+                      if (!posizione) return;
+
+                      const target =
+                        trovaPrimaFermataSalitaPercorso(opzioneSelezionata) ??
+                        destinazione?.coords ??
+                        posizione;
+
+                      const url = linkGoogleMapsNavigazione(posizione, target);
+                      window.open(url, '_blank');
                     }}
                   >
                     🗺 Indicazioni su Maps

@@ -1,4 +1,4 @@
-// Componente mappa Leaflet con marker posizione, fermate vicine
+// Componente mappa Leaflet integrato nel layout con marker fermate chiaramente riconoscibili
 
 import { useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Popup, Circle } from 'react-leaflet';
@@ -9,7 +9,7 @@ import type { FermataVicina, Coordiante } from '../../types';
 import { formattaDistanza } from '../../utils/matematica';
 import { CENTRO_TORINO } from '../../utils/costanti';
 
-// Fix icone Leaflet (problema noto con bundler)
+// Fix icone Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -17,47 +17,51 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Icona personalizzata per la posizione utente
+// Icona per la posizione dell'utente (punto blu/indigo pulsante)
 const iconaUtente = L.divIcon({
-  html: '<div class="marker-utente"></div>',
-  className: '',
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
+  html: '<div class="marker-utente-pulse"><div class="marker-utente-core"></div></div>',
+  className: 'custom-leaflet-icon',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
 });
 
-// Icona personalizzata per le fermate
-function creaIconaFermata(selezionata = false) {
+// Icona per le fermate GTT (marker visibile e riconoscibile con icona fermata)
+function creaIconaFermata(fermata: FermataVicina, selezionata = false) {
+  const nomeTroncato =
+    fermata.stop_name.length > 18
+      ? fermata.stop_name.substring(0, 16) + '…'
+      : fermata.stop_name;
+
   return L.divIcon({
-    html: `<div class="marker-fermata${selezionata ? ' selezionata' : ''}"></div>`,
-    className: '',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    html: `
+      <div class="marker-fermata-pin ${selezionata ? 'attiva' : ''}">
+        <div class="marker-fermata-bubble">
+          <span class="marker-fermata-icon">🚏</span>
+          <span class="marker-fermata-label">${nomeTroncato}</span>
+        </div>
+        <div class="marker-fermata-arrow"></div>
+      </div>
+    `,
+    className: 'custom-leaflet-icon',
+    iconSize: [120, 36],
+    iconAnchor: [60, 36],
   });
 }
 
-// Componente per aggiornare la vista della mappa
-function ControlloMappa({ centro }: { centro: Coordiante }) {
+// Controller per aggiornare e centrare la vista
+function CentraMappa({ posizione }: { posizione: Coordiante | null }) {
   const mappa = useMap();
   const primoRender = useRef(true);
 
   useEffect(() => {
+    if (!posizione) return;
     if (primoRender.current) {
-      mappa.setView([centro.lat, centro.lon], 16, { animate: false });
+      mappa.setView([posizione.lat, posizione.lon], 16, { animate: false });
       primoRender.current = false;
-    }
-  }, []);
-
-  return null;
-}
-
-function CentraMappa({ posizione }: { posizione: Coordiante | null }) {
-  const mappa = useMap();
-
-  useEffect(() => {
-    if (posizione) {
+    } else {
       mappa.flyTo([posizione.lat, posizione.lon], mappa.getZoom(), {
         animate: true,
-        duration: 1,
+        duration: 0.8,
       });
     }
   }, [posizione, mappa]);
@@ -87,24 +91,28 @@ export default function Mappa() {
     [fermataSelezionata, setFermataSelezionata]
   );
 
-  // Tile CARTO Dark (aperto e gratuito con attribuzione CARTO/OpenStreetMap, non richiede API key)
+  // Mostra solo le 12 fermate più pertinenti alla zona/posizione
+  const fermatePertinenti = fermateVicine.slice(0, 12);
+
+  // Tile CARTO Dark (aperto e gratuito con attribuzione CARTO/OpenStreetMap)
   const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
   return (
-    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+    <div className="mappa-wrapper">
       <MapContainer
         center={centroDipartenza}
         zoom={16}
-        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={false}
+        touchZoom={true}
+        dragging={true}
+        style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}
         zoomControl={false}
-        attributionControl={true}
+        attributionControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={tileUrl}
         />
-
-        <ControlloMappa centro={{ lat: centroDipartenza[0], lon: centroDipartenza[1] }} />
 
         {/* Centra sulla posizione quando cambia */}
         <CentraMappa posizione={posizione} />
@@ -118,47 +126,47 @@ export default function Mappa() {
               zIndexOffset={1000}
             >
               <Popup>
-                <div style={{ color: '#333', fontSize: '13px', fontWeight: 600 }}>
-                  📍 Posizione attuale
+                <div style={{ color: '#16162a', fontSize: '13px', fontWeight: 600 }}>
+                  📍 La tua posizione
                 </div>
               </Popup>
             </Marker>
-            {/* Cerchio di accuratezza */}
+            {/* Cerchio di raggio perimetrale */}
             <Circle
               center={[posizione.lat, posizione.lon]}
-              radius={50}
+              radius={60}
               pathOptions={{
-                color: '#4f46e5',
-                fillColor: '#4f46e5',
-                fillOpacity: 0.08,
-                weight: 1,
-                opacity: 0.3,
+                color: '#6366f1',
+                fillColor: '#6366f1',
+                fillOpacity: 0.12,
+                weight: 1.5,
+                opacity: 0.5,
               }}
             />
           </>
         )}
 
-        {/* Marker fermate vicine */}
-        {fermateVicine.map((fermata) => {
+        {/* Marker fermate GTFS pertinenti */}
+        {fermatePertinenti.map((fermata) => {
           const isSelezionata = fermataSelezionata?.stop_id === fermata.stop_id;
           return (
             <Marker
               key={fermata.stop_id}
               position={[fermata.stop_lat, fermata.stop_lon]}
-              icon={creaIconaFermata(isSelezionata)}
+              icon={creaIconaFermata(fermata, isSelezionata)}
               eventHandlers={{
                 click: () => handleFermataClick(fermata),
               }}
-              zIndexOffset={isSelezionata ? 500 : 0}
+              zIndexOffset={isSelezionata ? 600 : 100}
             >
               {isSelezionata && (
-                <Popup autoPan={false}>
-                  <div style={{ color: '#333', fontSize: '13px' }}>
+                <Popup autoPan={true}>
+                  <div style={{ color: '#16162a', fontSize: '13px' }}>
                     <div style={{ fontWeight: 700, marginBottom: '2px' }}>
                       🚏 {fermata.stop_name}
                     </div>
-                    <div style={{ color: '#666' }}>
-                      {formattaDistanza(fermata.distanza)}
+                    <div style={{ color: '#4f46e5', fontWeight: 600 }}>
+                      Distanza: {formattaDistanza(fermata.distanza)}
                     </div>
                   </div>
                 </Popup>
@@ -167,20 +175,20 @@ export default function Mappa() {
           );
         })}
 
-        {/* Marker destinazione */}
+        {/* Marker destinazione cercata */}
         {destinazione && (
           <Marker
             position={[destinazione.coords.lat, destinazione.coords.lon]}
             icon={L.divIcon({
-              html: '<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🎯</div>',
-              className: '',
-              iconSize: [28, 28],
-              iconAnchor: [14, 28],
+              html: '<div class="marker-destinazione-pin">🎯</div>',
+              className: 'custom-leaflet-icon',
+              iconSize: [36, 36],
+              iconAnchor: [18, 36],
             })}
             zIndexOffset={900}
           >
             <Popup>
-              <div style={{ color: '#333', fontSize: '13px', fontWeight: 600 }}>
+              <div style={{ color: '#16162a', fontSize: '13px', fontWeight: 600 }}>
                 🎯 {destinazione.nome}
               </div>
             </Popup>

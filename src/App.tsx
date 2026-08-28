@@ -1,17 +1,18 @@
-// App principale — orchestrazione di tutti i componenti
-// Gestisce: caricamento GTFS, GPS, aggiornamenti fermate
+// Layout Mobile-First Integrato per Torino Transit
+// La mappa è un elemento integrato nel flusso visivo e non copre l'interfaccia né intercetta lo scroll della pagina.
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from './store/appStore';
 import { caricaGTFS } from './services/gtfs';
 import { trovaFermateVicine } from './services/fermate';
+import { calcolaPercorso } from './services/routing';
 
 import Mappa from './components/Mappa';
 import SchermataCaricamento from './components/SchermataCaricamento';
 import BannerSimulazione from './components/BannerSimulazione';
 import ModalSimulazione from './components/ModalSimulazione';
 import BarraRicerca from './components/BarraRicerca';
-import PannelloFermate from './components/PannelloFermate';
+import PannelloFermate, { DettaglioFermata } from './components/PannelloFermate';
 import PannelloPercorso from './components/PannelloPercorso';
 import GestionePreferiti from './components/GestionePreferiti';
 
@@ -72,6 +73,7 @@ export default function App() {
     opzioniPercorso,
     calcolandoPercorso,
     fermataSelezionata,
+    preferiti,
     setStatoGTFS,
     setProgressoGTFS,
     setMessaggioGTFS,
@@ -83,6 +85,10 @@ export default function App() {
     modalitaPosizione,
     setModalitaPosizione,
     statoPosizione,
+    setDestinazione,
+    setOpzioniPercorso,
+    setCalcolandoPercorso,
+    setQueryRicerca,
   } = useAppStore();
 
   // Attiva GPS se necessario
@@ -114,7 +120,7 @@ export default function App() {
   // Aggiorna fermate quando cambia la posizione o vengono caricati i dati
   useEffect(() => {
     if (!posizione || statoGTFS !== 'pronto') return;
-    const fermate = trovaFermateVicine(posizione);
+    const fermate = trovaFermateVicine(posizione, 800, 15);
     setFermateVicine(fermate);
   }, [posizione, statoGTFS]);
 
@@ -124,9 +130,8 @@ export default function App() {
     setAggiornando(true);
 
     try {
-      // Ricarica fermate vicine
       if (posizione && statoGTFS === 'pronto') {
-        const fermate = trovaFermateVicine(posizione);
+        const fermate = trovaFermateVicine(posizione, 800, 15);
         setFermateVicine(fermate);
       }
       setUltimoAggiornamento(new Date());
@@ -135,158 +140,189 @@ export default function App() {
     }
   }, [aggiornando, posizione, statoGTFS, setAggiornando, setFermateVicine, setUltimoAggiornamento]);
 
-  // Mostra schermata di caricamento
+  // Seleziona un preferito rapido
+  async function selezionaPreferitoRapido(pref: typeof preferiti[0]) {
+    setQueryRicerca(pref.nome);
+    setDestinazione({
+      tipo: pref.tipo,
+      nome: pref.nome,
+      coords: pref.coords,
+      stop_id: pref.stop_id,
+    });
+
+    if (!posizione) return;
+
+    setCalcolandoPercorso(true);
+    try {
+      const opzioni = await calcolaPercorso(posizione, pref.coords);
+      setOpzioniPercorso(opzioni);
+    } catch {
+      setOpzioniPercorso([]);
+    } finally {
+      setCalcolandoPercorso(false);
+    }
+  }
+
+  // Mostra schermata di caricamento iniziale
   if (statoGTFS === 'non_caricato' || statoGTFS === 'caricamento' || statoGTFS === 'errore') {
     return <SchermataCaricamento />;
   }
 
-  // Schermata errore posizione (solo se GPS e non disponibile/negato)
+  // Schermata errore posizione (solo se GPS abilitato e non disponibile/negato)
   const mostraErrorePosizione =
     modalitaPosizione === 'gps' &&
     (statoPosizione === 'negato' || statoPosizione === 'non_disponibile') &&
     !posizione;
 
-  const mostraBottomSheet =
-    (opzioniPercorso.length > 0 || calcolandoPercorso) && !fermataSelezionata;
-
-  // Formatta il tempo dall'ultimo aggiornamento
   const tempoAggiornamento = ultimoAggiornamento
     ? (() => {
         const sec = Math.round((Date.now() - ultimoAggiornamento.getTime()) / 1000);
         if (sec < 10) return 'Appena aggiornato';
-        if (sec < 60) return `Aggiornato ${sec} secondi fa`;
+        if (sec < 60) return `Aggiornato ${sec}s fa`;
         return `Aggiornato ${Math.round(sec / 60)} min fa`;
       })()
     : null;
 
   return (
-    <div className="app-container">
-      {/* MAPPA — elemento principale */}
-      <div className="map-container">
-        <Mappa />
-
-        {/* Schermata errore posizione sopra la mappa */}
-        {mostraErrorePosizione && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(15,15,26,0.92)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '32px',
-              textAlign: 'center',
-              gap: '16px',
-              zIndex: 50,
-            }}
-          >
-            <div style={{ fontSize: '48px' }}>📍</div>
-            <div className="text-lg font-semibold">Posizione non disponibile</div>
-            <div className="text-sm text-muted">
-              {statoPosizione === 'negato'
-                ? 'Per utilizzare le fermate vicine è necessario consentire l\'accesso alla posizione nelle impostazioni del browser.'
-                : 'Impossibile ottenere la posizione. Controlla le impostazioni del dispositivo.'}
+    <div className="mobile-app-layout">
+      {/* HEADER PRINCIPALE */}
+      <header className="app-header">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="app-header-logo">🚋</span>
+            <div>
+              <h1 className="app-title">Torino Transit</h1>
+              <div className="app-subtitle">
+                📅 Dati programmati GTT {tempoAggiornamento ? `· ${tempoAggiornamento}` : ''}
+              </div>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
-              className="btn btn-primary"
+              className={`btn-header ${aggiornando ? 'caricamento' : ''}`}
+              onClick={aggiorna}
+              title="Aggiorna dati"
+              aria-label="Aggiorna"
+            >
+              <span className="aggiorna-icon">↻</span>
+            </button>
+
+            <button
+              className="btn-header"
+              onClick={() => setMostraGestionePreferiti(true)}
+              title="Preferiti"
+              aria-label="Preferiti"
+            >
+              ⭐ {preferiti.length > 0 && <span className="badge-count">{preferiti.length}</span>}
+            </button>
+
+            <button
+              className="btn-header"
+              onClick={() => setMostraModalSimulazione(true)}
+              title="Modalità posizione"
+              aria-label="Posizione"
+            >
+              📍
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* CONTENUTO SCORREVOLE */}
+      <main className="app-main-content">
+        {/* Banner Simulazione se attiva */}
+        <BannerSimulazione />
+
+        {/* Avviso errore GPS se presente */}
+        {mostraErrorePosizione && (
+          <div className="alert-box mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-warning">📍 Posizione GPS non disponibile</div>
+            </div>
+            <p className="text-xs text-muted mb-3">
+              Per continuare, attiva la posizione nel browser o passa alla modalità simulata per esplorare Torino.
+            </p>
+            <button
+              className="btn btn-primary w-full"
+              style={{ minHeight: '36px', fontSize: '13px' }}
               onClick={() => setModalitaPosizione('simulata')}
             >
-              📍 Usa posizione simulata
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => window.location.reload()}
-            >
-              🔄 Riprova
+              Usa posizione di test a Torino
             </button>
           </div>
         )}
 
-        {/* OVERLAY SUPERIORE */}
-        <div className="top-overlay">
-          <BannerSimulazione />
+        {/* BARRA DI RICERCA */}
+        <div className="mb-3">
           <BarraRicerca />
-
-          {/* Barra stato / tempo aggiornamento */}
-          {tempoAggiornamento && !mostraModalSimulazione && (
-            <div
-              style={{
-                marginTop: '8px',
-                textAlign: 'center',
-                fontSize: '11px',
-                color: 'var(--color-text-muted)',
-                opacity: 0.8,
-              }}
-            >
-              📅 Dati programmati · {tempoAggiornamento}
-            </div>
-          )}
         </div>
 
-        {/* Pulsante Centra posizione */}
-        <button
-          className="btn-posizione"
-          onClick={() => {
-            // Centra mappa (aggiorna posizione)
-            if (modalitaPosizione === 'simulata') {
-              setMostraModalSimulazione(true);
-            } else {
-              aggiorna();
-            }
-          }}
-          title="Posizione"
-        >
-          📍
-        </button>
+        {/* QUICK ACCESS PREFERITI (Chips a 1 tap) */}
+        {preferiti.length > 0 && (
+          <div className="preferiti-chips-row mb-3">
+            <span className="text-xs text-muted font-medium self-center mr-1">Preferiti:</span>
+            {preferiti.map((pref) => (
+              <button
+                key={pref.id}
+                className="chip-preferito"
+                onClick={() => selezionaPreferitoRapido(pref)}
+              >
+                <span>⭐ {pref.nome}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Pulsante Aggiorna */}
-        <button
-          className={`btn-aggiorna ${aggiornando ? 'caricamento' : ''}`}
-          onClick={aggiorna}
-          disabled={aggiornando}
-        >
-          <span className="aggiorna-icon">↻</span>
-          {aggiornando ? 'Aggiornamento…' : 'Aggiorna'}
-        </button>
+        {/* SEZIONE MAPPA INTEGRATA */}
+        <section className="map-card-section mb-4">
+          <div className="map-card-header">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary">🗺️ Mappa zona</span>
+              <span className="text-xs text-muted">Tocca una fermata per gli orari</span>
+            </div>
+            <button
+              className="btn-map-action"
+              onClick={() => {
+                if (modalitaPosizione === 'simulata') {
+                  setMostraModalSimulazione(true);
+                } else {
+                  aggiorna();
+                }
+              }}
+              title="Centra mappa sulla tua posizione"
+            >
+              📍 Centra
+            </button>
+          </div>
 
-        {/* Pulsante Preferiti */}
-        <button
-          onClick={() => setMostraGestionePreferiti(true)}
-          style={{
-            position: 'absolute',
-            bottom: 'calc(16px + 120px)',
-            right: '16px',
-            marginBottom: '52px',
-            zIndex: 10,
-            background: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            width: '44px',
-            height: '44px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            boxShadow: 'var(--shadow-md)',
-            fontSize: '20px',
-            transition: 'all 150ms ease',
-          }}
-          title="Preferiti"
-        >
-          ⭐
-        </button>
+          <div className="map-card-body">
+            <Mappa />
+          </div>
+        </section>
 
-        {/* PANNELLO FERMATE VICINE */}
-        {!mostraBottomSheet && !fermataSelezionata && <PannelloFermate />}
+        {/* SEZIONE FERMATE VICINE */}
+        <section className="mb-4">
+          <PannelloFermate />
+        </section>
 
-        {/* DETTAGLIO FERMATA */}
-        {fermataSelezionata && <PannelloFermate />}
+        {/* FOOTER INFORMATIVO & ATTRIBUZIONE */}
+        <footer className="app-footer">
+          <div className="text-xs text-muted text-center leading-relaxed">
+            Dati ufficiali GTT S.p.A. · Mappe © OpenStreetMap / CARTO
+            <br />
+            Applicazione gratuita per il trasporto pubblico a Torino
+          </div>
+        </footer>
+      </main>
 
-        {/* PANNELLO PERCORSO */}
-        {mostraBottomSheet && <PannelloPercorso />}
-      </div>
+      {/* DETTAGLIO FERMATA SELEZIONATA (Bottom Sheet) */}
+      {fermataSelezionata && <DettaglioFermata fermata={fermataSelezionata} />}
+
+      {/* PANNELLO PERCORSO (Bottom Sheet quando viene calcolato) */}
+      {(opzioniPercorso.length > 0 || calcolandoPercorso) && !fermataSelezionata && (
+        <PannelloPercorso />
+      )}
 
       {/* MODALI */}
       {mostraModalSimulazione && <ModalSimulazione />}

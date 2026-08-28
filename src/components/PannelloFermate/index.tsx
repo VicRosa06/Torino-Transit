@@ -1,4 +1,4 @@
-// Pannello fermate vicine — bottom panel con lista fermate e dettaglio
+// Lista e dettaglio fermate vicine integrati nel layout mobile-first
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
@@ -25,18 +25,18 @@ function RigaPartenza({ partenza }: { partenza: PartenzaFermata }) {
       <span className={`badge-linea ${classeBadge(partenza.route_type)}`}>
         {emojMezzo(partenza.route_type)} {partenza.route_short_name}
       </span>
-      <div style={{ flex: 1 }}>
-        <div className="text-sm font-medium truncate" style={{ maxWidth: '160px' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="text-sm font-medium truncate">
           {partenza.headsign}
         </div>
         <div className="text-xs text-muted">
           {formattaOra(partenza.oraPartenza)} · programmato
         </div>
       </div>
-      <div style={{ textAlign: 'right' }}>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div
           className={`partenza-minuti ${urgente ? 'urgente' : ''}`}
-          style={{ fontSize: urgente ? '22px' : '18px' }}
+          style={{ fontSize: urgente ? '20px' : '17px' }}
         >
           {arrivo}
         </div>
@@ -54,7 +54,7 @@ function RigaPartenza({ partenza }: { partenza: PartenzaFermata }) {
 // Dettaglio fermata (bottom sheet)
 // ==============================
 
-function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
+export function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
   const {
     posizione,
     setFermataSelezionata,
@@ -127,7 +127,7 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
     setTimeout(() => setAggiuntoAiPreferiti(false), 2000);
   }
 
-  const partenzeVisibili = mostraTutte ? partenze : partenze.slice(0, 5);
+  const partenzeVisibili = mostraTutte ? partenze : partenze.slice(0, 6);
 
   return (
     <>
@@ -139,31 +139,33 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
         <div className="bottom-sheet-handle" />
 
         {/* Header fermata */}
-        <div style={{ padding: '0 20px 16px' }}>
+        <div style={{ padding: '0 20px 14px' }}>
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-lg font-bold">🚏 {fermata.stop_name}</div>
-              <div className="text-sm text-muted mt-1">
-                📍 {formattaDistanza(fermata.distanza)} · a piedi
+            <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+              <div className="text-lg font-bold truncate">🚏 {fermata.stop_name}</div>
+              <div className="text-sm text-muted mt-1 flex items-center gap-2">
+                <span>📍 {formattaDistanza(fermata.distanza)} a piedi</span>
+                <span className="pill pill-info" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                  📅 Dati programmati
+                </span>
               </div>
             </div>
             <button
               className="btn btn-ghost btn-icon"
               onClick={() => setFermataSelezionata(null)}
-              style={{ fontSize: '20px' }}
+              style={{ fontSize: '20px', flexShrink: 0 }}
             >
               ✕
             </button>
-          </div>
-
-          {/* Pill tipo dati */}
-          <div className="mt-2">
-            <span className="pill pill-info">📅 Orari programmati</span>
           </div>
         </div>
 
         {/* Partenze */}
         <div style={{ padding: '0 20px' }}>
+          <div className="text-xs text-muted font-semibold mb-2" style={{ letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            Prossimi passaggi GTT
+          </div>
+
           {caricando ? (
             <div className="flex items-center justify-center" style={{ padding: '24px 0' }}>
               <div className="spinner" />
@@ -176,14 +178,14 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
               className="text-sm text-muted"
               style={{ textAlign: 'center', padding: '24px 0' }}
             >
-              Nessuna corsa nelle prossime 2 ore
+              Nessuna corsa programmata nelle prossime 2 ore
             </div>
           ) : (
             <>
               {partenzeVisibili.map((p, i) => (
                 <RigaPartenza key={i} partenza={p} />
               ))}
-              {partenze.length > 5 && !mostraTutte && (
+              {partenze.length > 6 && !mostraTutte && (
                 <button
                   className="btn btn-ghost w-full"
                   style={{ fontSize: '13px', marginTop: '8px' }}
@@ -200,10 +202,10 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
         <div style={{ padding: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={apriMaps}>
-              🗺 Indicazioni
+              🗺 Indicazioni Maps
             </button>
             <button className="btn btn-secondary" style={{ flex: 1 }} onClick={apriPercorso}>
-              🔍 Percorso
+              🔍 Calcola percorso
             </button>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -213,11 +215,11 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
                 style={{ flex: 1 }}
                 onClick={salvaPreferito}
               >
-                {aggiuntoAiPreferiti ? '✅ Aggiunto!' : '⭐ Salva tra preferiti'}
+                {aggiuntoAiPreferiti ? '✅ Aggiunto!' : '⭐ Salva tra i preferiti'}
               </button>
             ) : (
-              <button className="btn btn-secondary" style={{ flex: 1, opacity: 0.5 }} disabled>
-                ⭐ Già nei preferiti
+              <button className="btn btn-secondary" style={{ flex: 1, opacity: 0.6 }} disabled>
+                ⭐ Nei preferiti
               </button>
             )}
             <a
@@ -227,7 +229,7 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
               className="btn btn-secondary"
               style={{ flex: 1, textDecoration: 'none', textAlign: 'center' }}
             >
-              🎟 Biglietto
+              🎟 Biglietto TO Move
             </a>
           </div>
         </div>
@@ -237,83 +239,107 @@ function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
 }
 
 // ==============================
-// Lista fermate vicine (panel in basso)
+// Scheda singola fermata nella lista principale
+// ==============================
+
+function CardFermataVicina({
+  fermata,
+  onSelect,
+}: {
+  fermata: FermataVicina;
+  onSelect: () => void;
+}) {
+  const [partenze, setPartenze] = useState<PartenzaFermata[]>([]);
+
+  useEffect(() => {
+    const p = caricaPartenzeFermata(fermata.stop_id, 90, 2);
+    setPartenze(p);
+  }, [fermata.stop_id]);
+
+  return (
+    <div className="fermata-card" onClick={onSelect}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="fermata-badge-icon">🚏</span>
+          <span className="font-semibold text-base text-primary truncate" style={{ maxWidth: '190px' }}>
+            {fermata.stop_name}
+          </span>
+        </div>
+        <span className="pill pill-accent font-semibold">
+          {formattaDistanza(fermata.distanza)}
+        </span>
+      </div>
+
+      {/* Prossime corse preview */}
+      {partenze.length > 0 ? (
+        <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <span className="text-xs text-muted">Prossimi arrivi:</span>
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            {partenze.map((p, i) => (
+              <span
+                key={i}
+                className="text-xs font-medium"
+                style={{
+                  background: 'var(--color-bg-hover)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: p.minutiArrivo <= 3 ? 'var(--color-warning)' : 'var(--color-text-primary)',
+                }}
+              >
+                {p.route_short_name} → {p.minutiArrivo <= 0 ? 'ora' : `${p.minutiArrivo} min`}
+              </span>
+            ))}
+          </div>
+          <span className="text-muted text-sm">›</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between text-xs text-muted mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <span>Tocca per vedere orari e percorsi</span>
+          <span className="text-muted text-sm">›</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==============================
+// Lista fermate vicine integrata nel layout
 // ==============================
 
 export default function PannelloFermate() {
-  const { fermateVicine, fermataSelezionata, setFermataSelezionata } = useAppStore();
+  const { fermateVicine, setFermataSelezionata } = useAppStore();
 
-  if (fermataSelezionata) {
-    return <DettaglioFermata fermata={fermataSelezionata} />;
+  if (fermateVicine.length === 0) {
+    return (
+      <div className="card text-center" style={{ padding: '24px 16px' }}>
+        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚏</div>
+        <div className="text-base font-semibold mb-1">Nessuna fermata trovata</div>
+        <div className="text-xs text-muted">
+          Verifica la posizione selezionata o cerca una destinazione dalla barra in alto.
+        </div>
+      </div>
+    );
   }
 
-  if (fermateVicine.length === 0) return null;
-
   return (
-    <div className="nearby-panel">
-      <div
-        style={{
-          background: 'rgba(22,22,42,0.96)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-xl)',
-          padding: '12px 0 4px',
-          maxHeight: '200px',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{ padding: '0 16px 8px', fontSize: '11px', fontWeight: 600,
-            color: 'var(--color-text-muted)', letterSpacing: '0.5px',
-            textTransform: 'uppercase' }}
-        >
-          🚏 Fermate vicine
+    <div className="fermate-section">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="text-sm font-bold text-secondary uppercase tracking-wider">
+          🚏 Fermate vicine ({fermateVicine.length})
         </div>
+        <div className="text-xs text-muted">
+          Ordinati per distanza
+        </div>
+      </div>
 
-        <div
-          style={{
-            display: 'flex',
-            overflowX: 'auto',
-            gap: '8px',
-            padding: '0 16px 12px',
-            scrollbarWidth: 'none',
-          }}
-        >
-          {fermateVicine.map((fermata) => (
-            <div
-              key={fermata.stop_id}
-              onClick={() => setFermataSelezionata(fermata)}
-              style={{
-                flexShrink: 0,
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '10px 14px',
-                cursor: 'pointer',
-                minWidth: '120px',
-                maxWidth: '160px',
-                transition: 'all 150ms ease',
-              }}
-            >
-              <div className="text-xs text-muted mb-1">🚏</div>
-              <div
-                className="text-sm font-semibold"
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '130px',
-                }}
-              >
-                {fermata.stop_name}
-              </div>
-              <div className="fermata-distanza mt-1">
-                {formattaDistanza(fermata.distanza)}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="fermate-grid">
+        {fermateVicine.map((fermata) => (
+          <CardFermataVicina
+            key={fermata.stop_id}
+            fermata={fermata}
+            onSelect={() => setFermataSelezionata(fermata)}
+          />
+        ))}
       </div>
     </div>
   );

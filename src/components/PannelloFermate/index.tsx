@@ -109,7 +109,6 @@ export function DettaglioFermata({ fermata }: { fermata: FermataVicina }) {
     const url = linkGoogleMapsNavigazione(
       posizione,
       { lat: fermata.stop_lat, lon: fermata.stop_lon },
-      fermata.stop_name
     );
     window.open(url, '_blank');
   }

@@ -163,7 +163,11 @@ export default function PannelloPercorso() {
               style={{ marginTop: '12px' }}
               onClick={() => {
                 if (posizione && destinazione) {
-                  const url = linkGoogleMapsNavigazione(posizione, destinazione.coords, destinazione.nome);
+                  const url = linkGoogleMapsNavigazione(
+                    posizione,
+                    destinazione.coords,
+                    destinazione.tipo === 'luogo' ? destinazione.nome : undefined
+                  );
                   window.open(url, '_blank');
                 }
               }}

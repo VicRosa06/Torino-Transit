@@ -87,10 +87,8 @@ export default function Mappa() {
     [fermataSelezionata, setFermataSelezionata]
   );
 
-  const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY;
-  const tileUrl = cartoApiKey
-    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${cartoApiKey}`
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  // Tile CARTO Dark (aperto e gratuito con attribuzione CARTO/OpenStreetMap, non richiede API key)
+  const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
